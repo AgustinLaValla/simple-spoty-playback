@@ -1,6 +1,6 @@
 export interface Track {
     item: Item;
-    is_playing: string;
+    is_playing: boolean;
     progress_ms: number;
     no_data: boolean;
 }
@@ -13,4 +13,5 @@ export interface Item {
     name: string;
     artists: { name: string }[];
     duration_ms: 0;
+    track_number:number;
 }
