@@ -1,17 +1,18 @@
 export interface Track {
-    item: Item;
-    is_playing: boolean;
-    progress_ms: number;
-    no_data: boolean;
+    track_window: TrackWindow;
+    paused: boolean;
+    position: number;
+    duration: number;
 }
 
 
-export interface Item {
-    album: {
-        images: { url: string }[]
-    };
-    name: string;
-    artists: { name: string }[];
-    duration_ms: 0;
-    track_number:number;
+export interface TrackWindow {
+    current_track: {
+        album: {
+            images: { url: string, name?: string }[]
+        };
+        name: string;
+        artists: { name: string }[];
+        duration_ms: 0;
+    }
 }

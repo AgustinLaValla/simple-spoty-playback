@@ -1,79 +1,110 @@
 import React, { useState, useEffect } from 'react'
-import { Track, Item } from './interfaces/Item.interface'
+import { Track } from './interfaces/Item.interface'
 import { hash, loginUrl } from './spotify'
 import { Player } from './components/Player'
 import axios from 'axios'
 
 const initialItemState: Track = {
-  item: {
-    album: {
-      images: [{ url: '' }]
-    },
-    name: '',
-    artists: [{ name: '' }],
-    duration_ms: 0,
-    track_number:0
+  track_window: {
+    current_track: {
+      album: {
+        images: [{ url: '' }]
+      },
+      name: '',
+      artists: [{ name: '' }],
+      duration_ms: 0
+    }
   },
-  is_playing: false,
-  progress_ms: 0,
-  no_data: false,
+  paused: true,
+  position: 0,
+  duration: 0
 }
-
-const setHeaders = (token: string) => ({
-  headers: { Authorization: 'Bearer ' + token }
-})
-
-const url: string = 'https://api.spotify.com/v1/me/player';
-
-const getQuery = async (token:string, params:string = '') => await axios.get(`${url}/${params}`, setHeaders(token));  
 
 function App (): JSX.Element {
   const [token, setToken] = useState<string | null>(null)
+  const [deviceId, setDeviceId] = useState<string>()
   const [item, setItem] = useState<Track>(initialItemState)
-  const [context, setContext] = useState<string>('');
-  const [playing, setPlaying] = useState<boolean>(false);
+  const [context, setContext] = useState<string>('')
+  const [player, setPlayer] = useState<any>()
+  const [spotify, setSpotify] = useState()
+  let initPlayerInterval: NodeJS.Timeout
 
-  const getCurrentlyPlaying = async (token: string) => {
+  const checkForPlayer = (token: string) => {
+    if (
+      (window as any).Spotify !== null &&
+      (window as any).Spotify !== undefined
+    ) {
+      setPlayerInterval('stop-Interval', token)
+      setSpotify((window as any).Spotify)
+    }
+  }
+
+  const setPlayerInterval = (action: string, token: string) => {
+    if (action === 'init') {
+      initPlayerInterval = setInterval(() => checkForPlayer(token), 1000)
+    } else {
+      clearInterval(initPlayerInterval)
+    }
+  }
+
+  const transferPlayBackHere = async (device_id: string) => {
     try {
-      const { data } = await getQuery(token);
-
-      if (!data) {
-        setItem({ ...item, no_data: true })
-        return
-      }
-
-      setItem({
-        ...item,
-        item: data.item,
-        is_playing: data.is_playing,
-        progress_ms: data.progress_ms,
-        no_data: false
-      })
-
-      setContext(data.context.uri);
-
+      await axios.put(
+        'https://api.spotify.com/v1/me/player',
+        { device_ids: [device_id], play: false },
+        {
+          headers: {
+            authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
     } catch (error) {
       console.log(error)
     }
   }
 
-  const getRecentlyPlayed = async (token:string) => {
-    const { data } = await getQuery(token, 'recently-played?type=track&limit=1');
-    console.log(data.items[0]);
-    setContext(data.items[0].context.uri);
-    setItem({...item, item: data.items[0].track});
-  } 
-
   useEffect(() => {
     const _token: string = hash.access_token
     if (_token) {
       setToken(_token)
-      if(playing) {
-        setInterval(() => getCurrentlyPlaying(_token), 1000)
-      }
-      getRecentlyPlayed(_token);
+      setPlayerInterval('init', _token)
     }
-  }, [playing])
+  }, [])
+
+  useEffect(() => {
+    console.log(spotify)
+    if (spotify) {
+      setPlayer(
+        new (window as any).Spotify.Player({
+          name: 'Web developer sdk',
+          getOAuthToken: (cb: any) => {
+            cb(token)
+          },
+          volume: 1
+        })
+      )
+    }
+  }, [spotify])
+
+  useEffect(() => {
+    if (player) {
+      player.addListener('ready', async ({ device_id }) => {
+        await setDeviceId(device_id)
+        await transferPlayBackHere(device_id)
+      })
+
+      player.connect(state => console.log(state))
+      
+      setInterval(async () => {
+        const state = await player.getCurrentState()
+        if (state) {
+          setContext(state.context.ui)
+          setItem(state)
+        }
+      }, 1000)
+    }
+  }, [player])
 
   return (
     <div className='App'>
@@ -89,17 +120,17 @@ function App (): JSX.Element {
           </a>
         )}
 
-        {token &&  (
+        {token && (
           <Player
-            item={item.item}
-            is_playing={item.is_playing}
-            progress_ms={item.progress_ms}
+            player={player}
+            track_window={item.track_window}
+            paused={item.paused}
+            position={item.position}
             token={token}
             context={context}
-            setPlaying={setPlaying}
+            duration={item.duration}
           />
         )}
-
       </header>
     </div>
   )

@@ -1,3 +1,6 @@
+import axios from 'axios';
+import { url, setHeaders } from './utils';
+
 const clientId = "e0350e15f4944046926a1b4425e62d59";
 
 const authEndPoint = 'https://accounts.spotify.com/authorize';
@@ -24,3 +27,4 @@ const scopes = [
 export const loginUrl = `${authEndPoint}?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scopes.join(
     "%20"
 )}&response_type=token&show_dialog=true`;
+
